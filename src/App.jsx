@@ -8,7 +8,21 @@ const C = {
   bronze: "#B08D57", char: "#22201B", line: "#DCD2BB", muted: "#7A7566", danger: "#A3402F",
 };
 
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');`;
+const FONTS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+* { box-sizing: border-box; }
+body { overflow-x: hidden; }
+@media (max-width: 680px) {
+  .sadaar-sidebar { width: 100% !important; min-height: auto !important; flex-direction: row !important; align-items: center !important; padding: 12px 16px !important; flex-wrap: wrap !important; gap: 10px !important; }
+  .sadaar-sidebar-sub { display: none !important; }
+  .sadaar-sidebar-nav { flex-direction: row !important; gap: 4px !important; overflow-x: auto !important; }
+  .sadaar-logout-btn { margin-top: 0 !important; margin-left: auto !important; }
+  .sadaar-main { padding: 20px 16px !important; }
+  .sadaar-app-layout { flex-direction: column !important; }
+  .sadaar-scroll-table { overflow-x: auto !important; }
+  .sadaar-scroll-table > div { min-width: 560px !important; }
+}
+`;
 
 function money(n) {
   return `SAR ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -99,17 +113,17 @@ function Sidebar({ brand, view, setView, onLogout }) {
     { id: "payouts", label: "Payouts", icon: Wallet },
   ];
   return (
-    <div style={{ width: 220, flexShrink: 0, background: C.ink, color: C.sand, minHeight: "100vh", padding: "24px 18px", display: "flex", flexDirection: "column" }}>
+    <div className="sadaar-sidebar" style={{ width: 220, flexShrink: 0, background: C.ink, color: C.sand, minHeight: "100vh", padding: "24px 18px", display: "flex", flexDirection: "column" }}>
       <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 20, marginBottom: 2 }}>SADAAR</div>
-      <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#9CA394", marginBottom: 28 }}>{brand.name}</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#9CA394", marginBottom: 28 }} className="sadaar-sidebar-sub">{brand.name}</p>
+      <div className="sadaar-sidebar-nav" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setView(id)} style={{ display: "flex", alignItems: "center", gap: 10, background: view === id ? "#22331F" : "none", border: "none", cursor: "pointer", color: view === id ? C.sand : "#B7BCA9", fontFamily: "Inter, sans-serif", fontSize: 14, padding: "10px 10px", textAlign: "left" }}>
             <Icon size={16} /> {label}
           </button>
         ))}
       </div>
-      <button onClick={onLogout} style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: "#B7BCA9", fontFamily: "Inter, sans-serif", fontSize: 13, padding: "10px 10px" }}>
+      <button onClick={onLogout} className="sadaar-logout-btn" style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: "#B7BCA9", fontFamily: "Inter, sans-serif", fontSize: 13, padding: "10px 10px" }}>
         <LogOut size={15} /> Log out
       </button>
     </div>
@@ -310,6 +324,7 @@ function Payouts({ orderItems, loading }) {
           <p style={{ fontFamily: "Fraunces, serif", fontSize: 24, color: C.ink, margin: "6px 0 0" }}>{money(totalCommission)}</p>
         </div>
       </div>
+      <div className="sadaar-scroll-table">
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "8px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.line}` }}>
           <span>Item</span><span>Sale</span><span>Commission</span><span>Payout</span><span>Fulfillment</span><span>Paid out</span>
@@ -331,6 +346,7 @@ function Payouts({ orderItems, loading }) {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -370,10 +386,10 @@ export default function BrandDashboard() {
   if (!brand) return <LoginScreen onLogin={handleLogin} />;
 
   return (
-    <div style={{ display: "flex", background: C.sand, minHeight: "100vh" }}>
+    <div className="sadaar-app-layout" style={{ display: "flex", background: C.sand, minHeight: "100vh" }}>
       <style>{FONTS}</style>
       <Sidebar brand={brand} view={view} setView={setView} onLogout={() => { setBrand(null); setToken(null); }} />
-      <main style={{ flex: 1, padding: "32px 40px", maxWidth: 900 }}>
+      <main className="sadaar-main" style={{ flex: 1, padding: "32px 40px", maxWidth: 900 }}>
         {view === "overview" && <Overview products={products} orderItems={orderItems} loading={loading} />}
         {view === "products" && <Products products={products} loading={loading} token={token} onCreated={refresh} />}
         {view === "orders" && <Orders orderItems={orderItems} loading={loading} token={token} onUpdated={refresh} />}
