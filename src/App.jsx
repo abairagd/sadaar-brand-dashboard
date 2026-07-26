@@ -295,7 +295,7 @@ function Orders({ orderItems, loading, token, onUpdated }) {
 
 function Payouts({ orderItems, loading }) {
   if (loading) return <div><h1 style={h1}>Payouts</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
-  const totalPayout = orderItems.reduce((s, i) => s + payoutOf(i).payout, 0);
+  const totalPayout = orderItems.filter((i) => i.payout_status !== "paid").reduce((s, i) => s + payoutOf(i).payout, 0);
   const totalCommission = orderItems.reduce((s, i) => s + payoutOf(i).commission, 0);
   return (
     <div>
@@ -311,18 +311,23 @@ function Payouts({ orderItems, loading }) {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", padding: "8px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.line}` }}>
-          <span>Item</span><span>Sale</span><span>Commission</span><span>Payout</span><span>Status</span>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "8px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.line}` }}>
+          <span>Item</span><span>Sale</span><span>Commission</span><span>Payout</span><span>Fulfillment</span><span>Paid out</span>
         </div>
         {orderItems.map((i) => {
           const { total, commission, payout } = payoutOf(i);
           return (
-            <div key={i.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", padding: "10px", fontFamily: "Inter, sans-serif", fontSize: 13, borderBottom: `1px solid ${C.line}`, alignItems: "center" }}>
+            <div key={i.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "10px", fontFamily: "Inter, sans-serif", fontSize: 13, borderBottom: `1px solid ${C.line}`, alignItems: "center" }}>
               <span>{i.product_name}</span>
               <span>{money(total)}</span>
               <span style={{ color: C.muted }}>{money(commission)}</span>
               <span style={{ color: C.ink, fontWeight: 500 }}>{money(payout)}</span>
               <Badge status={i.fulfillment_status} />
+              {i.payout_status === "paid" ? (
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#2F5B3C" }}>Paid {i.payout_date ? new Date(i.payout_date).toLocaleDateString() : ""}</span>
+              ) : (
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted }}>Pending</span>
+              )}
             </div>
           );
         })}
