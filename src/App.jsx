@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2 } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star } from "lucide-react";
 
 const API_BASE = "https://sadaar-backend-production.up.railway.app/api";
 
@@ -43,7 +43,7 @@ async function api(path, options = {}, token) {
       ...(options.headers || {}),
     },
   });
-const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
@@ -217,7 +217,7 @@ function Products({ products, loading, token, onCreated }) {
         headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets the multipart boundary itself
         body: formData,
       });
-     const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(`${data.error || `Upload failed (${res.status})`}${data.detail ? " — " + JSON.stringify(data.detail).slice(0, 300) : ""}`);
       onCreated();
     } catch (err) {
@@ -233,6 +233,17 @@ function Products({ products, loading, token, onCreated }) {
       onCreated();
     } catch (err) {
       setUploadError((prev) => ({ ...prev, [productId]: err.message }));
+    }
+  };
+
+  const makePrimary = async (product, imageId) => {
+    const currentIds = (product.images || []).map((img) => img.id);
+    const reordered = [imageId, ...currentIds.filter((id) => id !== imageId)];
+    try {
+      await api(`/products/${product.id}/images/reorder`, { method: "PATCH", body: JSON.stringify({ imageIds: reordered }) }, token);
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [product.id]: err.message }));
     }
   };
 
@@ -282,10 +293,17 @@ function Products({ products, loading, token, onCreated }) {
 
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
                 <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>Photos</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  {(p.images || []).map((img) => (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+                  {(p.images || []).map((img, idx) => (
                     <div key={img.id} style={{ position: "relative" }}>
-                      <img src={img.url} alt="" style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: `1px solid ${C.line}` }} />
+                      <img src={img.url} alt="" style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: idx === 0 ? `2px solid ${C.ink}` : `1px solid ${C.line}` }} />
+                      {idx === 0 ? (
+                        <span style={{ position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)", background: C.ink, color: C.warm, fontSize: 9, padding: "1px 6px", borderRadius: 8, whiteSpace: "nowrap" }}>Primary</span>
+                      ) : (
+                        <button onClick={() => makePrimary(p, img.id)} title="Make primary photo" style={{ position: "absolute", bottom: -6, left: -6, background: C.warm, border: `1px solid ${C.line}`, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                          <Star size={11} color={C.ink} />
+                        </button>
+                      )}
                       <button onClick={() => deleteImage(p.id, img.id)} style={{ position: "absolute", top: -6, right: -6, background: C.ink, color: C.warm, border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11 }}>
                         <X size={11} />
                       </button>
