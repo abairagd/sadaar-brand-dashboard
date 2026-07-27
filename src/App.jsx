@@ -271,6 +271,40 @@ function Products({ products, loading, token, onCreated }) {
     }
   };
 
+  const [stockDrafts, setStockDrafts] = useState({});
+  const [savingStock, setSavingStock] = useState(null);
+  const [removingId, setRemovingId] = useState(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+
+  const saveStock = async (productId, variantId) => {
+    const key = `${productId}-${variantId}`;
+    const value = stockDrafts[key];
+    if (value === undefined || value === "") return;
+    setSavingStock(key);
+    try {
+      await api(`/products/${productId}/variants/${variantId}/stock`, { method: "PATCH", body: JSON.stringify({ stockQty: Number(value) }) }, token);
+      setStockDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [productId]: err.message }));
+    } finally {
+      setSavingStock(null);
+    }
+  };
+
+  const removeProduct = async (productId) => {
+    setRemovingId(productId);
+    try {
+      await api(`/products/${productId}`, { method: "DELETE" }, token);
+      setConfirmRemoveId(null);
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [productId]: err.message }));
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   const makePrimary = async (product, imageId) => {
     const currentIds = (product.images || []).map((img) => img.id);
     const reordered = [imageId, ...currentIds.filter((id) => id !== imageId)];
@@ -322,14 +356,45 @@ function Products({ products, loading, token, onCreated }) {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
                   <p style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: C.ink, margin: 0 }}>{p.name}</p>
-                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted, margin: "2px 0 0" }}>{p.category}</p>
+                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted, margin: "2px 0 0" }}>{p.category}{p.subcategory ? ` · ${p.subcategory}` : ""}</p>
                 </div>
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.ink, fontWeight: 500 }}>{money(p.price)}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.ink, fontWeight: 500, margin: 0 }}>{money(p.price)}</p>
+                  {confirmRemoveId === p.id ? (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => removeProduct(p.id)} disabled={removingId === p.id} style={{ background: C.danger, color: C.warm, border: "none", padding: "5px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, cursor: "pointer" }}>
+                        {removingId === p.id ? "..." : "Confirm"}
+                      </button>
+                      <button onClick={() => setConfirmRemoveId(null)} style={{ background: "none", border: `1px solid ${C.line}`, padding: "5px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, cursor: "pointer", color: C.char }}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmRemoveId(p.id)} title="Remove product" style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 4 }}>
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                {(p.variants || []).map((v) => (
-                  <span key={v.id} style={{ fontFamily: "Inter, sans-serif", fontSize: 12, border: `1px solid ${C.line}`, padding: "4px 9px", color: v.stock_qty === 0 ? C.danger : C.char }}>{v.size}: {v.stock_qty} in stock</span>
-                ))}
+                {(p.variants || []).map((v) => {
+                  const key = `${p.id}-${v.id}`;
+                  return (
+                    <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 4, border: `1px solid ${C.line}`, padding: "4px 6px 4px 9px" }}>
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.char }}>{v.size}:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={stockDrafts[key] ?? v.stock_qty}
+                        onChange={(e) => setStockDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                        style={{ width: 44, border: "none", fontFamily: "Inter, sans-serif", fontSize: 12, color: v.stock_qty === 0 ? C.danger : C.char, padding: "2px 2px", background: "transparent" }}
+                      />
+                      {stockDrafts[key] !== undefined && Number(stockDrafts[key]) !== v.stock_qty && (
+                        <button onClick={() => saveStock(p.id, v.id)} disabled={savingStock === key} style={{ background: C.ink, color: C.warm, border: "none", padding: "3px 7px", fontFamily: "Inter, sans-serif", fontSize: 10, cursor: "pointer" }}>
+                          {savingStock === key ? "..." : "Save"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
