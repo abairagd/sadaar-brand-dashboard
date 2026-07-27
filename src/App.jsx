@@ -204,10 +204,8 @@ function Overview({ products, orderItems, loading }) {
 }
 
 const SUBCATEGORIES_BY_CATEGORY = {
-  Men: ["Streetwear", "Shirts", "Pants", "Swimwear", "Thobes"],
-  Women: ["Abayas", "Streetwear", "Shirts", "Pants", "Swimwear", "Dresses"],
-  Accessories: ["Jewelry", "Bags", "Belts", "Watches"],
-  Shoes: ["Sneakers", "Sandals", "Boots", "Heels"],
+  Men: ["Shoes", "Accessories", "Streetwear", "Shirts", "Pants", "Swimwear", "Thobes"],
+  Women: ["Shoes", "Accessories", "Abayas", "Streetwear", "Shirts", "Pants", "Swimwear", "Dresses"],
 };
 
 function Products({ products, loading, token, onCreated }) {
@@ -296,7 +294,7 @@ function Products({ products, loading, token, onCreated }) {
         <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
           <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }} style={inputStyle}>
-            {["Men", "Women", "Accessories", "Shoes"].map((c) => <option key={c}>{c}</option>)}
+            {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
           </select>
           {(SUBCATEGORIES_BY_CATEGORY[category] || []).length > 0 && (
             <select value={subcategory} onChange={(e) => setSubcategory(e.target.value)} style={inputStyle}>
