@@ -507,6 +507,7 @@ function Spotlight({ token, brandId }) {
       const result = await api("/spotlight", { method: "POST", body: JSON.stringify({ durationDays }) }, token);
       setPurchase(result);
       setSelectedDuration(durationDays);
+      localStorage.setItem("sadaar_pending_spotlight", JSON.stringify({ id: result.id, price: result.price, durationDays }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -532,11 +533,12 @@ function Spotlight({ token, brandId }) {
           currency: "SAR",
           description: `SADAAR spotlight — ${selectedDuration} days`,
           publishable_api_key: publishableKey,
-          callback_url: window.location.href,
+          callback_url: window.location.origin + window.location.pathname,
           methods: ["creditcard"],
           on_completed: async (payment) => {
             try {
               await api(`/spotlight/${purchase.id}/confirm-payment`, { method: "POST", body: JSON.stringify({ paymentId: payment.id }) }, token);
+              localStorage.removeItem("sadaar_pending_spotlight");
               setPaid(true);
               load();
             } catch (e) {
@@ -637,13 +639,33 @@ function Spotlight({ token, brandId }) {
   );
 }
 
+const BRAND_AUTH_KEY = "sadaar_brand_auth";
+
+function getSavedBrandAuth() {
+  try {
+    const raw = localStorage.getItem(BRAND_AUTH_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBrandAuth(tok, brandInfo) {
+  try {
+    if (tok && brandInfo) localStorage.setItem(BRAND_AUTH_KEY, JSON.stringify({ token: tok, brand: brandInfo }));
+    else localStorage.removeItem(BRAND_AUTH_KEY);
+  } catch {}
+}
+
 export default function BrandDashboard() {
-  const [token, setToken] = useState(null);
-  const [brand, setBrand] = useState(null);
+  const saved = getSavedBrandAuth();
+  const [token, setToken] = useState(saved?.token || null);
+  const [brand, setBrand] = useState(saved?.brand || null);
   const [view, setView] = useState("overview");
   const [products, setProducts] = useState([]);
   const [orderItems, setOrderItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [returningSpotlight, setReturningSpotlight] = useState(null); // { status: 'checking'|'paid'|'error', message }
 
   const loadData = useCallback(async (tok, brandInfo) => {
     setLoading(true);
@@ -660,20 +682,99 @@ export default function BrandDashboard() {
     }
   }, []);
 
+  // Restore data on a fresh page load if we already had a saved session
+  // (e.g. right after a 3D Secure redirect wiped React's in-memory state).
+  useEffect(() => {
+    if (token && brand) loadData(token, brand);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle the return trip from Moyasar's 3D Secure redirect for a spotlight
+  // purchase. Moyasar appends ?id=<payment_id> to callback_url and the page
+  // fully reloads, so we recover the pending purchase from localStorage
+  // (saved by the Spotlight component before showing the payment form) and
+  // finish confirming it here, at the top level, regardless of which tab
+  // the dashboard happens to land on after reload.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get("id");
+    if (!paymentId) return;
+
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const pendingRaw = localStorage.getItem("sadaar_pending_spotlight");
+    if (!pendingRaw || !saved) {
+      setReturningSpotlight({ status: "error", message: "Payment returned, but we lost track of which purchase it belongs to." });
+      return;
+    }
+    const pending = JSON.parse(pendingRaw);
+    setReturningSpotlight({ status: "checking" });
+
+    api(`/spotlight/${pending.id}/confirm-payment`, { method: "POST", body: JSON.stringify({ paymentId }) }, saved.token)
+      .then(() => {
+        localStorage.removeItem("sadaar_pending_spotlight");
+        setReturningSpotlight({ status: "paid" });
+        setView("spotlight");
+      })
+      .catch((e) => {
+        setReturningSpotlight({ status: "error", message: e.message });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleLogin = (tok, brandInfo) => {
     setToken(tok);
     setBrand(brandInfo);
+    saveBrandAuth(tok, brandInfo);
     loadData(tok, brandInfo);
+  };
+
+  const logout = () => {
+    setBrand(null);
+    setToken(null);
+    saveBrandAuth(null, null);
   };
 
   const refresh = () => { if (token && brand) loadData(token, brand); };
 
   if (!brand) return <LoginScreen onLogin={handleLogin} />;
 
+  if (returningSpotlight) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.sand, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <style>{FONTS}</style>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          {returningSpotlight.status === "checking" && (
+            <>
+              <Loader2 size={28} color={C.ink} style={{ animation: "spin 1s linear infinite", marginBottom: 16 }} />
+              <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+              <p style={{ fontFamily: "Fraunces, serif", fontSize: 18, color: C.ink }}>Confirming your payment...</p>
+            </>
+          )}
+          {returningSpotlight.status === "paid" && (
+            <>
+              <Check size={30} color={C.ink} style={{ marginBottom: 16 }} />
+              <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 22, color: C.ink }}>Payment received</h1>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 8, marginBottom: 20 }}>Your brand is now spotlighted on the SADAAR homepage.</p>
+              <button onClick={() => setReturningSpotlight(null)} style={{ background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>Continue</button>
+            </>
+          )}
+          {returningSpotlight.status === "error" && (
+            <>
+              <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 20, color: C.ink }}>We couldn't confirm that payment</h1>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.danger, marginTop: 8, marginBottom: 20 }}>{returningSpotlight.message}</p>
+              <button onClick={() => setReturningSpotlight(null)} style={{ background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>Continue</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="sadaar-app-layout" style={{ display: "flex", background: C.sand, minHeight: "100vh" }}>
       <style>{FONTS}</style>
-      <Sidebar brand={brand} view={view} setView={setView} onLogout={() => { setBrand(null); setToken(null); }} />
+      <Sidebar brand={brand} view={view} setView={setView} onLogout={logout} />
       <main className="sadaar-main" style={{ flex: 1, padding: "32px 40px", maxWidth: 900 }}>
         {view === "overview" && <Overview products={products} orderItems={orderItems} loading={loading} />}
         {view === "products" && <Products products={products} loading={loading} token={token} onCreated={refresh} />}
