@@ -43,8 +43,8 @@ async function api(path, options = {}, token) {
       ...(options.headers || {}),
     },
   });
-  const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(`${data.error || `Upload failed (${res.status})`}${data.detail ? " — " + JSON.stringify(data.detail).slice(0, 300) : ""}`);
+const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
 
@@ -217,8 +217,8 @@ function Products({ products, loading, token, onCreated }) {
         headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets the multipart boundary itself
         body: formData,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+     const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(`${data.error || `Upload failed (${res.status})`}${data.detail ? " — " + JSON.stringify(data.detail).slice(0, 300) : ""}`);
       onCreated();
     } catch (err) {
       setUploadError((prev) => ({ ...prev, [productId]: err.message }));
