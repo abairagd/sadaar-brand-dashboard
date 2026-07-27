@@ -209,11 +209,24 @@ const SUBCATEGORIES_BY_CATEGORY = {
   Women: ["Shoes", "Accessories", "Abayas", "Streetwear", "Shirts", "Pants", "Swimwear", "Dresses"],
 };
 
+const PRODUCT_TYPES_BY_SUBCATEGORY = {
+  Shirts: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies"],
+  Pants: ["Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts"],
+  Streetwear: ["Hoodies", "Sweatshirts", "Joggers", "Bomber Jackets"],
+  Swimwear: ["Swim Trunks", "Swim Shorts", "One-Piece", "Bikini"],
+  Thobes: ["Classic Thobe", "Modern Thobe"],
+  Abayas: ["Classic Abaya", "Embroidered Abaya", "Kimono Abaya"],
+  Dresses: ["Maxi Dress", "Midi Dress", "Evening Dress"],
+  Shoes: ["Sneakers", "Sandals", "Boots", "Heels", "Loafers"],
+  Accessories: ["Jewelry", "Bags", "Belts", "Watches", "Sunglasses"],
+};
+
 function Products({ products, loading, token, onCreated }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Men");
   const [subcategory, setSubcategory] = useState("");
+  const [productType, setProductType] = useState("");
   const [price, setPrice] = useState("");
   const [sizesRaw, setSizesRaw] = useState("S:5, M:5, L:5");
   const [error, setError] = useState("");
@@ -231,8 +244,8 @@ function Products({ products, loading, token, onCreated }) {
 
     setSaving(true);
     try {
-      await api("/products", { method: "POST", body: JSON.stringify({ name, category, subcategory: subcategory || undefined, price: Number(price), sizes }) }, token);
-      setName(""); setPrice(""); setSizesRaw("S:5, M:5, L:5"); setSubcategory(""); setShowForm(false);
+      await api("/products", { method: "POST", body: JSON.stringify({ name, category, subcategory: subcategory || undefined, productType: productType || undefined, price: Number(price), sizes }) }, token);
+      setName(""); setPrice(""); setSizesRaw("S:5, M:5, L:5"); setSubcategory(""); setProductType(""); setShowForm(false);
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -328,13 +341,19 @@ function Products({ products, loading, token, onCreated }) {
       {showForm && (
         <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
-          <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }} style={inputStyle}>
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); setProductType(""); }} style={inputStyle}>
             {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
           </select>
           {(SUBCATEGORIES_BY_CATEGORY[category] || []).length > 0 && (
-            <select value={subcategory} onChange={(e) => setSubcategory(e.target.value)} style={inputStyle}>
+            <select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setProductType(""); }} style={inputStyle}>
               <option value="">No subcategory</option>
               {SUBCATEGORIES_BY_CATEGORY[category].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          )}
+          {(PRODUCT_TYPES_BY_SUBCATEGORY[subcategory] || []).length > 0 && (
+            <select value={productType} onChange={(e) => setProductType(e.target.value)} style={inputStyle}>
+              <option value="">No product type</option>
+              {PRODUCT_TYPES_BY_SUBCATEGORY[subcategory].map((pt) => <option key={pt}>{pt}</option>)}
             </select>
           )}
           <input required value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="Price (SAR)" style={inputStyle} />
