@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star, Sparkles } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star, Sparkles, Pencil } from "lucide-react";
 
 const API_BASE = "https://sadaar-backend-production.up.railway.app/api";
 
@@ -318,6 +318,50 @@ function Products({ products, loading, token, onCreated }) {
     }
   };
 
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const startEdit = (p) => {
+    setEditingId(p.id);
+    setEditDraft({
+      name: p.name,
+      description: p.description || "",
+      category: p.category,
+      subcategory: p.subcategory || "",
+      productType: p.product_type || "",
+      price: p.price,
+    });
+    setEditError("");
+  };
+
+  const cancelEdit = () => { setEditingId(null); setEditError(""); };
+
+  const saveEdit = async (productId) => {
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      await api(`/products/${productId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editDraft.name,
+          description: editDraft.description,
+          category: editDraft.category,
+          subcategory: editDraft.subcategory || undefined,
+          productType: editDraft.productType || undefined,
+          price: Number(editDraft.price),
+        }),
+      }, token);
+      setEditingId(null);
+      onCreated();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const makePrimary = async (product, imageId) => {
     const currentIds = (product.images || []).map((img) => img.id);
     const reordered = [imageId, ...currentIds.filter((id) => id !== imageId)];
@@ -372,13 +416,45 @@ function Products({ products, loading, token, onCreated }) {
         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
           {products.map((p) => (
             <div key={p.id} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 16 }}>
+              {editingId === p.id ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
+                  <input value={editDraft.name} onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Product name" style={inputStyle} />
+                  <textarea value={editDraft.description} onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, fontFamily: "Inter, sans-serif", resize: "vertical" }} />
+                  <select value={editDraft.category} onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value, subcategory: "", productType: "" }))} style={inputStyle}>
+                    {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                  {(SUBCATEGORIES_BY_CATEGORY[editDraft.category] || []).length > 0 && (
+                    <select value={editDraft.subcategory} onChange={(e) => setEditDraft((d) => ({ ...d, subcategory: e.target.value, productType: "" }))} style={inputStyle}>
+                      <option value="">No subcategory</option>
+                      {SUBCATEGORIES_BY_CATEGORY[editDraft.category].map((s) => <option key={s}>{s}</option>)}
+                    </select>
+                  )}
+                  {(PRODUCT_TYPES_BY_SUBCATEGORY[editDraft.subcategory] || []).length > 0 && (
+                    <select value={editDraft.productType} onChange={(e) => setEditDraft((d) => ({ ...d, productType: e.target.value }))} style={inputStyle}>
+                      <option value="">No product type</option>
+                      {PRODUCT_TYPES_BY_SUBCATEGORY[editDraft.subcategory].map((pt) => <option key={pt}>{pt}</option>)}
+                    </select>
+                  )}
+                  <input type="number" value={editDraft.price} onChange={(e) => setEditDraft((d) => ({ ...d, price: e.target.value }))} placeholder="Price (SAR)" style={inputStyle} />
+                  {editError && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{editError}</p>}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => saveEdit(p.id)} disabled={savingEdit} style={{ background: C.ink, color: C.warm, border: "none", padding: "9px 16px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+                      {savingEdit ? "Saving..." : "Save changes"}
+                    </button>
+                    <button onClick={cancelEdit} style={{ background: "none", border: `1px solid ${C.line}`, padding: "9px 16px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", color: C.char }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
                   <p style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: C.ink, margin: 0 }}>{p.name}</p>
-                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted, margin: "2px 0 0" }}>{p.category}{p.subcategory ? ` · ${p.subcategory}` : ""}</p>
+                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted, margin: "2px 0 0" }}>{p.category}{p.subcategory ? ` · ${p.subcategory}` : ""}{p.product_type ? ` · ${p.product_type}` : ""}</p>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.ink, fontWeight: 500, margin: 0 }}>{money(p.price)}</p>
+                  <button onClick={() => startEdit(p)} title="Edit product" style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 4 }}>
+                    <Pencil size={15} />
+                  </button>
                   {confirmRemoveId === p.id ? (
                     <div style={{ display: "flex", gap: 4 }}>
                       <button onClick={() => removeProduct(p.id)} disabled={removingId === p.id} style={{ background: C.danger, color: C.warm, border: "none", padding: "5px 10px", fontFamily: "Inter, sans-serif", fontSize: 11, cursor: "pointer" }}>
@@ -393,6 +469,8 @@ function Products({ products, loading, token, onCreated }) {
                   )}
                 </div>
               </div>
+              )}
+              {editingId !== p.id && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                 {(p.variants || []).map((v) => {
                   const key = `${p.id}-${v.id}`;
@@ -415,6 +493,7 @@ function Products({ products, loading, token, onCreated }) {
                   );
                 })}
               </div>
+              )}
 
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
                 <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>Photos</p>
