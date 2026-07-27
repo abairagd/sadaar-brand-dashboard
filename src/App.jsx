@@ -203,10 +203,18 @@ function Overview({ products, orderItems, loading }) {
   );
 }
 
+const SUBCATEGORIES_BY_CATEGORY = {
+  Men: ["Streetwear", "Shirts", "Pants", "Swimwear", "Thobes"],
+  Women: ["Abayas", "Streetwear", "Shirts", "Pants", "Swimwear", "Dresses"],
+  Accessories: ["Jewelry", "Bags", "Belts", "Watches"],
+  Shoes: ["Sneakers", "Sandals", "Boots", "Heels"],
+};
+
 function Products({ products, loading, token, onCreated }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Contemporary");
+  const [category, setCategory] = useState("Men");
+  const [subcategory, setSubcategory] = useState("");
   const [price, setPrice] = useState("");
   const [sizesRaw, setSizesRaw] = useState("S:5, M:5, L:5");
   const [error, setError] = useState("");
@@ -224,8 +232,8 @@ function Products({ products, loading, token, onCreated }) {
 
     setSaving(true);
     try {
-      await api("/products", { method: "POST", body: JSON.stringify({ name, category, price: Number(price), sizes }) }, token);
-      setName(""); setPrice(""); setSizesRaw("S:5, M:5, L:5"); setShowForm(false);
+      await api("/products", { method: "POST", body: JSON.stringify({ name, category, subcategory: subcategory || undefined, price: Number(price), sizes }) }, token);
+      setName(""); setPrice(""); setSizesRaw("S:5, M:5, L:5"); setSubcategory(""); setShowForm(false);
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -287,9 +295,15 @@ function Products({ products, loading, token, onCreated }) {
       {showForm && (
         <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
-          <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
-            {["Contemporary", "Abayas", "Streetwear", "Accessories", "Footwear"].map((c) => <option key={c}>{c}</option>)}
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }} style={inputStyle}>
+            {["Men", "Women", "Accessories", "Shoes"].map((c) => <option key={c}>{c}</option>)}
           </select>
+          {(SUBCATEGORIES_BY_CATEGORY[category] || []).length > 0 && (
+            <select value={subcategory} onChange={(e) => setSubcategory(e.target.value)} style={inputStyle}>
+              <option value="">No subcategory</option>
+              {SUBCATEGORIES_BY_CATEGORY[category].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          )}
           <input required value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="Price (SAR)" style={inputStyle} />
           <div>
             <input value={sizesRaw} onChange={(e) => setSizesRaw(e.target.value)} placeholder="Sizes and stock, e.g. S:5, M:5, L:5" style={{ ...inputStyle, width: "100%" }} />
