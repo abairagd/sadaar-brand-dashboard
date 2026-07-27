@@ -140,6 +140,13 @@ function Overview({ products, orderItems, loading }) {
   const toFulfill = orderItems.filter((i) => i.fulfillment_status === "pending").length;
   const monthSales = orderItems.reduce((s, i) => s + Number(i.unit_price) * i.quantity, 0);
   const owed = orderItems.reduce((s, i) => s + payoutOf(i).payout, 0);
+  const LOW_STOCK_THRESHOLD = 3;
+  const lowStockItems = products.flatMap((p) =>
+    (p.variants || []).filter((v) => v.stock_qty > 0 && v.stock_qty <= LOW_STOCK_THRESHOLD).map((v) => ({ productName: p.name, ...v }))
+  );
+  const outOfStockItems = products.flatMap((p) =>
+    (p.variants || []).filter((v) => v.stock_qty === 0).map((v) => ({ productName: p.name, ...v }))
+  );
   const cards = [
     { label: "Sales (all time)", value: money(monthSales) },
     { label: "Orders to fulfill", value: toFulfill },
@@ -158,6 +165,27 @@ function Overview({ products, orderItems, loading }) {
           </div>
         ))}
       </div>
+
+      {(lowStockItems.length > 0 || outOfStockItems.length > 0) && (
+        <>
+          <h2 style={h2}>Stock alerts</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {outOfStockItems.map((v) => (
+              <div key={`out-${v.id}`} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#F0DAD5", border: "1px solid #E0BEB2", fontFamily: "Inter, sans-serif", fontSize: 13, color: C.danger }}>
+                <span>{v.productName} ({v.size})</span>
+                <span style={{ fontWeight: 600 }}>Out of stock</span>
+              </div>
+            ))}
+            {lowStockItems.map((v) => (
+              <div key={`low-${v.id}`} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#F3E6D8", border: "1px solid #E5CBA3", fontFamily: "Inter, sans-serif", fontSize: 13, color: "#8A5A1E" }}>
+                <span>{v.productName} ({v.size})</span>
+                <span style={{ fontWeight: 600 }}>{v.stock_qty} left</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <h2 style={h2}>Needs fulfillment</h2>
       {orderItems.filter((i) => i.fulfillment_status === "pending").length === 0 ? (
         <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted }}>Nothing waiting — you're caught up.</p>
