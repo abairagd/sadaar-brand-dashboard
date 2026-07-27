@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star, Sparkles } from "lucide-react";
 
 const API_BASE = "https://sadaar-backend-production.up.railway.app/api";
 
@@ -111,6 +111,7 @@ function Sidebar({ brand, view, setView, onLogout }) {
     { id: "products", label: "Products", icon: Package },
     { id: "orders", label: "Orders", icon: ClipboardList },
     { id: "payouts", label: "Payouts", icon: Wallet },
+    { id: "spotlight", label: "Spotlight", icon: Sparkles },
   ];
   return (
     <div className="sadaar-sidebar" style={{ width: 220, flexShrink: 0, background: C.ink, color: C.sand, minHeight: "100vh", padding: "24px 18px", display: "flex", flexDirection: "column" }}>
@@ -467,6 +468,175 @@ function Payouts({ orderItems, loading }) {
   );
 }
 
+function Spotlight({ token, brandId }) {
+  const [pricing, setPricing] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDuration, setSelectedDuration] = useState(null);
+  const [purchase, setPurchase] = useState(null); // { id, price } once created (unpaid)
+  const [paid, setPaid] = useState(false);
+  const [publishableKey, setPublishableKey] = useState(null);
+  const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [debugMsg, setDebugMsg] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [pricingRes, historyRes, configRes] = await Promise.all([
+        api("/spotlight/pricing"),
+        api("/spotlight/mine", {}, token),
+        api("/config/moyasar"),
+      ]);
+      setPricing(pricingRes);
+      setHistory(historyRes);
+      setPublishableKey(configRes.publishableKey);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const startPurchase = async (durationDays) => {
+    setStarting(true);
+    setError("");
+    try {
+      const result = await api("/spotlight", { method: "POST", body: JSON.stringify({ durationDays }) }, token);
+      setPurchase(result);
+      setSelectedDuration(durationDays);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  // Once we have an unpaid purchase and Moyasar's key, mount the hosted card form —
+  // identical pattern to the customer checkout's payment step.
+  useEffect(() => {
+    if (!purchase || !publishableKey || paid) return;
+    setDebugMsg("Loading payment form...");
+
+    const mount = () => {
+      try {
+        if (!document.querySelector(".mysr-spotlight-form") || !window.Moyasar) {
+          setDebugMsg("Payment form not ready yet.");
+          return;
+        }
+        window.Moyasar.init({
+          element: ".mysr-spotlight-form",
+          amount: Math.round(purchase.price * 100),
+          currency: "SAR",
+          description: `SADAAR spotlight — ${selectedDuration} days`,
+          publishable_api_key: publishableKey,
+          callback_url: window.location.href,
+          methods: ["creditcard"],
+          on_completed: async (payment) => {
+            try {
+              await api(`/spotlight/${purchase.id}/confirm-payment`, { method: "POST", body: JSON.stringify({ paymentId: payment.id }) }, token);
+              setPaid(true);
+              load();
+            } catch (e) {
+              setError(e.message);
+            }
+          },
+        });
+        setDebugMsg("");
+      } catch (err) {
+        setDebugMsg(`Error: ${err.message}`);
+      }
+    };
+
+    const existing = document.querySelector('script[src*="moyasar.js"]');
+    if (existing && window.Moyasar) { mount(); return; }
+
+    const linkEl = document.createElement("link");
+    linkEl.rel = "stylesheet";
+    linkEl.href = "https://cdn.moyasar.com/mpf/1.7.3/moyasar.css";
+    document.head.appendChild(linkEl);
+    const script = document.createElement("script");
+    script.src = "https://cdn.moyasar.com/mpf/1.7.3/moyasar.js";
+    script.onload = mount;
+    document.body.appendChild(script);
+  }, [purchase, publishableKey, paid, selectedDuration, token, load]);
+
+  if (loading) return <div><h1 style={h1}>Spotlight</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
+
+  if (paid) {
+    return (
+      <div style={{ maxWidth: 420, textAlign: "center", padding: "60px 0" }}>
+        <Check size={30} color={C.ink} style={{ marginBottom: 16 }} />
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 22, color: C.ink }}>You're spotlighted!</h1>
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 8, marginBottom: 20 }}>Your brand is now featured on the SADAAR homepage.</p>
+        <button onClick={() => { setPurchase(null); setPaid(false); }} style={{ background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>Back</button>
+      </div>
+    );
+  }
+
+  if (purchase) {
+    return (
+      <div style={{ maxWidth: 420 }}>
+        <h1 style={h1}>Payment</h1>
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, margin: "8px 0 20px" }}>{selectedDuration}-day spotlight — {money(purchase.price)}</p>
+        {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        {debugMsg && <p style={{ color: C.muted, fontFamily: "monospace", fontSize: 11, marginBottom: 12 }}>{debugMsg}</p>}
+        <div className="mysr-spotlight-form" />
+      </div>
+    );
+  }
+
+  const activeSpotlight = history.find((h) => h.payment_status === "paid" && new Date(h.ends_at) > new Date());
+
+  return (
+    <div>
+      <h1 style={h1}>Spotlight</h1>
+      <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, maxWidth: 480 }}>
+        Get your brand featured on the SADAAR homepage for extra visibility. Pick a duration below.
+      </p>
+      {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 16 }}>{error}</p>}
+
+      {activeSpotlight && (
+        <div style={{ background: "#DDE7DB", border: "1px solid #2F5B3C", padding: 14, marginBottom: 20, fontFamily: "Inter, sans-serif", fontSize: 13, color: "#2F5B3C" }}>
+          You're currently spotlighted until {new Date(activeSpotlight.ends_at).toLocaleDateString()}.
+        </div>
+      )}
+
+      {pricing && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 32 }}>
+          {Object.entries(pricing).map(([days, price]) => (
+            <div key={days} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, minWidth: 160 }}>
+              <p style={{ fontFamily: "Fraunces, serif", fontSize: 22, color: C.ink, margin: 0 }}>{days} days</p>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.muted, margin: "6px 0 14px" }}>{money(price)}</p>
+              <button onClick={() => startPurchase(Number(days))} disabled={starting} style={{ width: "100%", background: C.ink, color: C.warm, border: "none", padding: "9px 0", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+                {starting ? "..." : "Select"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={h2}>History</h2>
+      {history.length === 0 ? (
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted }}>No spotlight purchases yet.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {history.map((h) => (
+            <div key={h.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13 }}>
+              <span>{h.duration_days} days — {money(h.price)}</span>
+              <span style={{ color: C.muted }}>
+                {h.payment_status === "paid" ? `Active until ${new Date(h.ends_at).toLocaleDateString()}` : "Unpaid"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BrandDashboard() {
   const [token, setToken] = useState(null);
   const [brand, setBrand] = useState(null);
@@ -509,6 +679,7 @@ export default function BrandDashboard() {
         {view === "products" && <Products products={products} loading={loading} token={token} onCreated={refresh} />}
         {view === "orders" && <Orders orderItems={orderItems} loading={loading} token={token} onUpdated={refresh} />}
         {view === "payouts" && <Payouts orderItems={orderItems} loading={loading} />}
+        {view === "spotlight" && <Spotlight token={token} brandId={brand.id} />}
       </main>
     </div>
   );
