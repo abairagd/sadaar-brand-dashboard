@@ -183,6 +183,8 @@ function Products({ products, loading, token, onCreated }) {
   const [sizesRaw, setSizesRaw] = useState("S:5, M:5, L:5");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingFor, setUploadingFor] = useState(null);
+  const [uploadError, setUploadError] = useState({});
 
   const addProduct = async (e) => {
     e.preventDefault();
@@ -201,6 +203,36 @@ function Products({ products, loading, token, onCreated }) {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const uploadImage = async (productId, file) => {
+    setUploadingFor(productId);
+    setUploadError((prev) => ({ ...prev, [productId]: "" }));
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${API_BASE}/products/${productId}/images`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets the multipart boundary itself
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [productId]: err.message }));
+    } finally {
+      setUploadingFor(null);
+    }
+  };
+
+  const deleteImage = async (productId, imageId) => {
+    try {
+      await api(`/products/${productId}/images/${imageId}`, { method: "DELETE" }, token);
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [productId]: err.message }));
     }
   };
 
@@ -246,6 +278,31 @@ function Products({ products, loading, token, onCreated }) {
                 {(p.variants || []).map((v) => (
                   <span key={v.id} style={{ fontFamily: "Inter, sans-serif", fontSize: 12, border: `1px solid ${C.line}`, padding: "4px 9px", color: v.stock_qty === 0 ? C.danger : C.char }}>{v.size}: {v.stock_qty} in stock</span>
                 ))}
+              </div>
+
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>Photos</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  {(p.images || []).map((img) => (
+                    <div key={img.id} style={{ position: "relative" }}>
+                      <img src={img.url} alt="" style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: `1px solid ${C.line}` }} />
+                      <button onClick={() => deleteImage(p.id, img.id)} style={{ position: "absolute", top: -6, right: -6, background: C.ink, color: C.warm, border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11 }}>
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  <label style={{ width: 64, height: 64, border: `1px dashed ${C.line}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.muted }}>
+                    {uploadingFor === p.id ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Plus size={16} />}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      style={{ display: "none" }}
+                      onChange={(e) => { if (e.target.files[0]) uploadImage(p.id, e.target.files[0]); e.target.value = ""; }}
+                      disabled={uploadingFor === p.id}
+                    />
+                  </label>
+                </div>
+                {uploadError[p.id] && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, marginTop: 8 }}>{uploadError[p.id]}</p>}
               </div>
             </div>
           ))}
