@@ -296,11 +296,19 @@ const SUBCATEGORIES_BY_CATEGORY = {
   Women: ["Clothing", "Shoes", "Accessories", "Jewelry"],
 };
 
-const PRODUCT_TYPES_BY_SUBCATEGORY = {
-  Clothing: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Bomber Jackets", "Swim Trunks", "Swim Shorts", "One-Piece", "Bikini", "Classic Thobe", "Modern Thobe", "Classic Abaya", "Embroidered Abaya", "Kimono Abaya", "Maxi Dress", "Midi Dress", "Evening Dress"],
-  Shoes: ["Sneakers", "Sandals", "Boots", "Heels", "Loafers"],
-  Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
-  Jewelry: ["Necklaces", "Rings", "Bracelets", "Earrings"],
+const PRODUCT_TYPES_BY_CATEGORY = {
+  Men: {
+    Clothing: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Bomber Jackets", "Swim Trunks", "Classic Thobe", "Modern Thobe"],
+    Shoes: ["Sneakers", "Sandals", "Boots", "Loafers"],
+    Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
+    Jewelry: ["Necklaces", "Rings", "Bracelets"],
+  },
+  Women: {
+    Clothing: ["T-Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Swim Shorts", "One-Piece", "Bikini", "Classic Abaya", "Embroidered Abaya", "Kimono Abaya", "Maxi Dress", "Midi Dress", "Evening Dress"],
+    Shoes: ["Sneakers", "Sandals", "Boots", "Heels", "Loafers"],
+    Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
+    Jewelry: ["Necklaces", "Rings", "Bracelets", "Earrings"],
+  },
 };
 
 function Products({ products, loading, token, onCreated }) {
@@ -476,10 +484,10 @@ function Products({ products, loading, token, onCreated }) {
               {SUBCATEGORIES_BY_CATEGORY[category].map((s) => <option key={s}>{s}</option>)}
             </select>
           )}
-          {(PRODUCT_TYPES_BY_SUBCATEGORY[subcategory] || []).length > 0 && (
+          {(PRODUCT_TYPES_BY_CATEGORY[category] && PRODUCT_TYPES_BY_CATEGORY[category][subcategory] || []).length > 0 && (
             <select value={productType} onChange={(e) => setProductType(e.target.value)} style={inputStyle}>
               <option value="">No product type</option>
-              {PRODUCT_TYPES_BY_SUBCATEGORY[subcategory].map((pt) => <option key={pt}>{pt}</option>)}
+              {PRODUCT_TYPES_BY_CATEGORY[category][subcategory].map((pt) => <option key={pt}>{pt}</option>)}
             </select>
           )}
           <input required value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="Price (SAR)" style={inputStyle} />
@@ -511,10 +519,10 @@ function Products({ products, loading, token, onCreated }) {
                       {SUBCATEGORIES_BY_CATEGORY[editDraft.category].map((s) => <option key={s}>{s}</option>)}
                     </select>
                   )}
-                  {(PRODUCT_TYPES_BY_SUBCATEGORY[editDraft.subcategory] || []).length > 0 && (
+                  {(PRODUCT_TYPES_BY_CATEGORY[editDraft.category] && PRODUCT_TYPES_BY_CATEGORY[editDraft.category][editDraft.subcategory] || []).length > 0 && (
                     <select value={editDraft.productType} onChange={(e) => setEditDraft((d) => ({ ...d, productType: e.target.value }))} style={inputStyle}>
                       <option value="">No product type</option>
-                      {PRODUCT_TYPES_BY_SUBCATEGORY[editDraft.subcategory].map((pt) => <option key={pt}>{pt}</option>)}
+                      {PRODUCT_TYPES_BY_CATEGORY[editDraft.category][editDraft.subcategory].map((pt) => <option key={pt}>{pt}</option>)}
                     </select>
                   )}
                   <input type="number" value={editDraft.price} onChange={(e) => setEditDraft((d) => ({ ...d, price: e.target.value }))} placeholder="Price (SAR)" style={inputStyle} />
