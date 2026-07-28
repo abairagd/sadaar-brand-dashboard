@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star, Sparkles, Pencil } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Wallet, LogOut, Plus, X, Truck, Check, Loader2, Star, Sparkles, Pencil, User } from "lucide-react";
 
 const API_BASE = "https://sadaar-backend-production.up.railway.app/api";
 
@@ -199,6 +199,7 @@ function Sidebar({ brand, view, setView, onLogout }) {
     { id: "orders", label: "Orders", icon: ClipboardList },
     { id: "payouts", label: "Payouts", icon: Wallet },
     { id: "spotlight", label: "Spotlight", icon: Sparkles },
+    { id: "profile", label: "Brand Profile", icon: User },
   ];
   return (
     <div className="sadaar-sidebar" style={{ width: 220, flexShrink: 0, background: C.ink, color: C.sand, minHeight: "100vh", padding: "24px 18px", display: "flex", flexDirection: "column" }}>
@@ -452,6 +453,20 @@ function Products({ products, loading, token, onCreated }) {
     }
   };
 
+  const [togglingSignature, setTogglingSignature] = useState(null);
+
+  const toggleSignature = async (productId, current) => {
+    setTogglingSignature(productId);
+    try {
+      await api(`/products/${productId}/signature`, { method: "PATCH", body: JSON.stringify({ isSignature: !current }) }, token);
+      onCreated();
+    } catch (err) {
+      setUploadError((prev) => ({ ...prev, [productId]: err.message }));
+    } finally {
+      setTogglingSignature(null);
+    }
+  };
+
   const makePrimary = async (product, imageId) => {
     const currentIds = (product.images || []).map((img) => img.id);
     const reordered = [imageId, ...currentIds.filter((id) => id !== imageId)];
@@ -542,6 +557,9 @@ function Products({ products, loading, token, onCreated }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.ink, fontWeight: 500, margin: 0 }}>{money(p.price)}</p>
+                  <button onClick={() => toggleSignature(p.id, p.is_signature)} disabled={togglingSignature === p.id} title={p.is_signature ? "Remove from Signature Products" : "Mark as Signature Product"} style={{ background: "none", border: "none", cursor: "pointer", color: p.is_signature ? C.bronze : C.muted, padding: 4 }}>
+                    <Star size={15} fill={p.is_signature ? C.bronze : "none"} />
+                  </button>
                   <button onClick={() => startEdit(p)} title="Edit product" style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 4 }}>
                     <Pencil size={15} />
                   </button>
@@ -910,6 +928,97 @@ function saveBrandAuth(tok, brandInfo) {
   } catch {}
 }
 
+function BrandProfile({ token }) {
+  const [form, setForm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api("/brands/me", {}, token)
+      .then((data) => setForm({
+        founderStory: data.founder_story || "",
+        brandPhilosophy: data.brand_philosophy || "",
+        originCity: data.origin_city || "",
+        instagramUrl: data.instagram_url || "",
+        tiktokUrl: data.tiktok_url || "",
+        snapchatUrl: data.snapchat_url || "",
+        xUrl: data.x_url || "",
+        whatsappUrl: data.whatsapp_url || "",
+        websiteUrl: data.website_url || "",
+      }))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      await api("/brands/me", { method: "PATCH", body: JSON.stringify(form) }, token);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div><h1 style={h1}>Brand Profile</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
+  if (!form) return <div><h1 style={h1}>Brand Profile</h1><p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13 }}>{error || "Could not load profile."}</p></div>;
+
+  return (
+    <div style={{ maxWidth: 520 }}>
+      <h1 style={h1}>Brand Profile</h1>
+      <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 24 }}>
+        This shows up on your public "About" page — customers see this alongside your shop.
+      </p>
+      <form onSubmit={save} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <label style={labelStyle}>Founder story</label>
+          <textarea value={form.founderStory} onChange={set("founderStory")} rows={4} placeholder="How your brand started, who's behind it..." style={{ ...inputStyle, width: "100%", fontFamily: "Inter, sans-serif", resize: "vertical", boxSizing: "border-box" }} />
+        </div>
+        <div>
+          <label style={labelStyle}>Brand philosophy</label>
+          <textarea value={form.brandPhilosophy} onChange={set("brandPhilosophy")} rows={4} placeholder="What you stand for, your design principles..." style={{ ...inputStyle, width: "100%", fontFamily: "Inter, sans-serif", resize: "vertical", boxSizing: "border-box" }} />
+        </div>
+        <div>
+          <label style={labelStyle}>Origin city</label>
+          <input value={form.originCity} onChange={set("originCity")} placeholder="e.g. Riyadh, Jeddah" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        </div>
+
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginTop: 8, marginBottom: 0 }}>Social links (optional)</p>
+        <input value={form.instagramUrl} onChange={set("instagramUrl")} placeholder="Instagram URL" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        <input value={form.tiktokUrl} onChange={set("tiktokUrl")} placeholder="TikTok URL" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        <input value={form.snapchatUrl} onChange={set("snapchatUrl")} placeholder="Snapchat URL" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        <input value={form.xUrl} onChange={set("xUrl")} placeholder="X (Twitter) URL" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        <input value={form.whatsappUrl} onChange={set("whatsappUrl")} placeholder="WhatsApp link (e.g. https://wa.me/9665...)" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+        <input value={form.websiteUrl} onChange={set("websiteUrl")} placeholder="Website URL" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+
+        {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{error}</p>}
+        {saved && <p style={{ color: "#2F5B3C", fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>Saved.</p>}
+        <button type="submit" disabled={saving} style={{ background: C.ink, color: C.warm, border: "none", padding: "12px 0", fontFamily: "Inter, sans-serif", fontSize: 14, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Saving..." : "Save profile"}
+        </button>
+      </form>
+
+      <div style={{ marginTop: 24, padding: 14, border: `1px solid ${C.line}`, background: C.warm }}>
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.char, margin: 0 }}>
+          To feature specific items as "Signature Products" on your profile, go to <strong>Products</strong> and click the star icon on any product.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const labelStyle = { display: "block", fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted, marginBottom: 4 };
+
 export default function BrandDashboard() {
   const saved = getSavedBrandAuth();
   const [token, setToken] = useState(saved?.token || null);
@@ -1037,6 +1146,7 @@ export default function BrandDashboard() {
         {view === "orders" && <Orders orderItems={orderItems} loading={loading} token={token} onUpdated={refresh} />}
         {view === "payouts" && <Payouts orderItems={orderItems} loading={loading} />}
         {view === "spotlight" && <Spotlight token={token} brandId={brand.id} />}
+        {view === "profile" && <BrandProfile token={token} />}
       </main>
     </div>
   );
