@@ -674,6 +674,32 @@ function Orders({ orderItems, loading, token, onUpdated }) {
     }
   };
 
+  const respondToReturn = async (id, action) => {
+    setRespondingId(id);
+    setError("");
+    try {
+      await api(`/orders/items/${id}/return`, { method: "PATCH", body: JSON.stringify({ action }) }, token);
+      onUpdated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
+  const confirmReturnReceived = async (id) => {
+    setRespondingId(id);
+    setError("");
+    try {
+      await api(`/orders/items/${id}/return/received`, { method: "POST" }, token);
+      onUpdated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
   if (loading) return <div><h1 style={h1}>Orders</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
 
   return (
@@ -709,6 +735,35 @@ function Orders({ orderItems, loading, token, onUpdated }) {
             )}
             {i.cancellation_status === "denied" && (
               <p style={{ marginTop: 10, fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted }}>Cancellation request denied.</p>
+            )}
+            {i.return_status === "requested" && (
+              <div style={{ marginTop: 12, background: "#F3E6D8", border: "1px solid #E5CBA3", padding: 10 }}>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#8A5A1E", margin: "0 0 6px" }}>
+                  Customer requested a <strong>{i.return_type === "exchange" ? "size exchange" : "return"}</strong>{i.return_reason ? `: "${i.return_reason}"` : "."}
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => respondToReturn(i.id, "approve")} disabled={respondingId === i.id} style={{ background: C.ink, color: C.warm, border: "none", padding: "6px 14px", fontFamily: "Inter, sans-serif", fontSize: 12, cursor: "pointer" }}>
+                    {respondingId === i.id ? "..." : "Approve"}
+                  </button>
+                  <button onClick={() => respondToReturn(i.id, "deny")} disabled={respondingId === i.id} style={{ background: "none", border: `1px solid ${C.line}`, padding: "6px 14px", fontFamily: "Inter, sans-serif", fontSize: 12, cursor: "pointer", color: C.char }}>
+                    Deny
+                  </button>
+                </div>
+              </div>
+            )}
+            {i.return_status === "approved" && (
+              <div style={{ marginTop: 12, background: "#DDE7DB", border: "1px solid #C3D6C6", padding: 10 }}>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#2F5B3C", margin: "0 0 8px" }}>Approved — waiting for the item to arrive back from the customer.</p>
+                <button onClick={() => confirmReturnReceived(i.id)} disabled={respondingId === i.id} style={{ background: C.ink, color: C.warm, border: "none", padding: "6px 14px", fontFamily: "Inter, sans-serif", fontSize: 12, cursor: "pointer" }}>
+                  {respondingId === i.id ? "..." : i.return_type === "exchange" ? "Mark received & send exchange" : "Mark received & refund"}
+                </button>
+              </div>
+            )}
+            {i.return_status === "denied" && (
+              <p style={{ marginTop: 10, fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted }}>Return/exchange request denied.</p>
+            )}
+            {i.return_status === "received" && (
+              <p style={{ marginTop: 10, fontFamily: "Inter, sans-serif", fontSize: 12, color: "#2F5B3C" }}>{i.return_type === "exchange" ? "Exchange completed." : "Return completed and refunded."}</p>
             )}
             {i.fulfillment_status === "pending" && i.cancellation_status !== "requested" ? (
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
