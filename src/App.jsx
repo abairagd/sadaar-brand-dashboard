@@ -223,7 +223,7 @@ function Loading() {
   return <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, display: "flex", alignItems: "center", gap: 8 }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading...<style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style></p>;
 }
 
-function Overview({ products, orderItems, loading }) {
+function Overview({ products, orderItems, loading, setView }) {
   if (loading) return <div><h1 style={h1}>Overview</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
   const totalStock = products.reduce((s, p) => s + (p.variants || []).reduce((v, x) => v + x.stock_qty, 0), 0);
   const toFulfill = orderItems.filter((i) => i.fulfillment_status === "pending").length;
@@ -236,9 +236,16 @@ function Overview({ products, orderItems, loading }) {
   const outOfStockItems = products.flatMap((p) =>
     (p.variants || []).filter((v) => v.stock_qty === 0).map((v) => ({ productName: p.name, ...v }))
   );
+
+  const pendingFulfillment = orderItems.filter((i) => i.fulfillment_status === "pending");
+  const cancellationRequests = orderItems.filter((i) => i.cancellation_status === "requested");
+  const returnRequests = orderItems.filter((i) => i.return_status === "requested");
+  const returnsAwaitingReceipt = orderItems.filter((i) => i.return_status === "approved");
+  const needsAttentionCount = pendingFulfillment.length + cancellationRequests.length + returnRequests.length + returnsAwaitingReceipt.length;
+
   const cards = [
     { label: "Sales (all time)", value: money(monthSales) },
-    { label: "Orders to fulfill", value: toFulfill },
+    { label: "Needs attention", value: needsAttentionCount },
     { label: "Active products", value: products.length },
     { label: "Units in stock", value: totalStock },
     { label: "Payout owed", value: money(owed) },
@@ -275,16 +282,34 @@ function Overview({ products, orderItems, loading }) {
         </>
       )}
 
-      <h2 style={h2}>Needs fulfillment</h2>
-      {orderItems.filter((i) => i.fulfillment_status === "pending").length === 0 ? (
+      <h2 style={h2}>Needs your attention</h2>
+      {needsAttentionCount === 0 ? (
         <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted }}>Nothing waiting — you're caught up.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {orderItems.filter((i) => i.fulfillment_status === "pending").map((i) => (
-            <div key={i.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13 }}>
+          {cancellationRequests.map((i) => (
+            <button key={`cancel-${i.id}`} onClick={() => setView("orders")} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "10px 14px", background: "#F3E6D8", border: "1px solid #E5CBA3", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+              <span>{i.product_name} × {i.quantity}</span>
+              <span style={{ color: "#8A5A1E", fontWeight: 600 }}>Cancellation requested</span>
+            </button>
+          ))}
+          {returnRequests.map((i) => (
+            <button key={`return-${i.id}`} onClick={() => setView("orders")} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "10px 14px", background: "#F3E6D8", border: "1px solid #E5CBA3", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+              <span>{i.product_name} × {i.quantity}</span>
+              <span style={{ color: "#8A5A1E", fontWeight: 600 }}>{i.return_type === "exchange" ? "Exchange" : "Return"} requested</span>
+            </button>
+          ))}
+          {returnsAwaitingReceipt.map((i) => (
+            <button key={`awaiting-${i.id}`} onClick={() => setView("orders")} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "10px 14px", background: "#DDE7DB", border: "1px solid #C3D6C6", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+              <span>{i.product_name} × {i.quantity}</span>
+              <span style={{ color: "#2F5B3C", fontWeight: 600 }}>Awaiting item back from customer</span>
+            </button>
+          ))}
+          {pendingFulfillment.map((i) => (
+            <button key={`fulfill-${i.id}`} onClick={() => setView("orders")} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
               <span>{i.product_name} × {i.quantity}</span>
               <span style={{ color: C.muted }}>{i.shipping_city}, order #{i.order_id}</span>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -649,6 +674,7 @@ function Orders({ orderItems, loading, token, onUpdated }) {
   const [respondingId, setRespondingId] = useState(null);
 
   const ship = async (id) => {
+    if (!window.confirm("Mark this item as shipped?")) return;
     setShippingId(id);
     setError("");
     try {
@@ -662,6 +688,10 @@ function Orders({ orderItems, loading, token, onUpdated }) {
   };
 
   const respondToCancellation = async (id, action) => {
+    const message = action === "approve"
+      ? "Approve this cancellation and refund the customer? This charges a real refund and can't be undone."
+      : "Deny this cancellation request?";
+    if (!window.confirm(message)) return;
     setRespondingId(id);
     setError("");
     try {
@@ -675,6 +705,10 @@ function Orders({ orderItems, loading, token, onUpdated }) {
   };
 
   const respondToReturn = async (id, action) => {
+    const message = action === "approve"
+      ? "Approve this return/exchange request? The customer will be asked to ship the item back to you."
+      : "Deny this return/exchange request?";
+    if (!window.confirm(message)) return;
     setRespondingId(id);
     setError("");
     try {
@@ -688,6 +722,7 @@ function Orders({ orderItems, loading, token, onUpdated }) {
   };
 
   const confirmReturnReceived = async (id) => {
+    if (!window.confirm("Confirm you've physically received this item back? This will process the real refund or exchange immediately and can't be undone.")) return;
     setRespondingId(id);
     setError("");
     try {
@@ -1229,7 +1264,7 @@ export default function BrandDashboard() {
       <style>{FONTS}</style>
       <Sidebar brand={brand} view={view} setView={setView} onLogout={logout} />
       <main className="sadaar-main" style={{ flex: 1, padding: "32px 40px", maxWidth: 900 }}>
-        {view === "overview" && <Overview products={products} orderItems={orderItems} loading={loading} />}
+        {view === "overview" && <Overview products={products} orderItems={orderItems} loading={loading} setView={setView} />}
         {view === "products" && <Products products={products} loading={loading} token={token} onCreated={refresh} />}
         {view === "orders" && <Orders orderItems={orderItems} loading={loading} token={token} onUpdated={refresh} />}
         {view === "payouts" && <Payouts orderItems={orderItems} loading={loading} />}
