@@ -646,6 +646,7 @@ function Orders({ orderItems, loading, token, onUpdated }) {
   const [trackingDrafts, setTrackingDrafts] = useState({});
   const [shippingId, setShippingId] = useState(null);
   const [error, setError] = useState("");
+  const [respondingId, setRespondingId] = useState(null);
 
   const ship = async (id) => {
     setShippingId(id);
@@ -657,6 +658,19 @@ function Orders({ orderItems, loading, token, onUpdated }) {
       setError(err.message);
     } finally {
       setShippingId(null);
+    }
+  };
+
+  const respondToCancellation = async (id, action) => {
+    setRespondingId(id);
+    setError("");
+    try {
+      await api(`/orders/items/${id}/cancellation`, { method: "PATCH", body: JSON.stringify({ action }) }, token);
+      onUpdated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRespondingId(null);
     }
   };
 
@@ -677,7 +691,26 @@ function Orders({ orderItems, loading, token, onUpdated }) {
               </div>
               <Badge status={i.fulfillment_status} />
             </div>
-            {i.fulfillment_status === "pending" ? (
+            {i.cancellation_status === "requested" && (
+              <div style={{ marginTop: 12, background: "#F3E6D8", border: "1px solid #E5CBA3", padding: 10 }}>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#8A5A1E", margin: "0 0 8px" }}>Customer requested a cancellation for this item.</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => respondToCancellation(i.id, "approve")} disabled={respondingId === i.id} style={{ background: C.ink, color: C.warm, border: "none", padding: "6px 14px", fontFamily: "Inter, sans-serif", fontSize: 12, cursor: "pointer" }}>
+                    {respondingId === i.id ? "..." : "Approve & refund"}
+                  </button>
+                  <button onClick={() => respondToCancellation(i.id, "deny")} disabled={respondingId === i.id} style={{ background: "none", border: `1px solid ${C.line}`, padding: "6px 14px", fontFamily: "Inter, sans-serif", fontSize: 12, cursor: "pointer", color: C.char }}>
+                    Deny
+                  </button>
+                </div>
+              </div>
+            )}
+            {i.cancellation_status === "refunded" && (
+              <p style={{ marginTop: 10, fontFamily: "Inter, sans-serif", fontSize: 12, color: "#2F5B3C" }}>Cancelled and refunded.</p>
+            )}
+            {i.cancellation_status === "denied" && (
+              <p style={{ marginTop: 10, fontFamily: "Inter, sans-serif", fontSize: 12, color: C.muted }}>Cancellation request denied.</p>
+            )}
+            {i.fulfillment_status === "pending" && i.cancellation_status !== "requested" ? (
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                 <input placeholder="Tracking number" value={trackingDrafts[i.id] || ""} onChange={(e) => setTrackingDrafts((prev) => ({ ...prev, [i.id]: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
                 <button onClick={() => ship(i.id)} disabled={shippingId === i.id} style={{ display: "flex", alignItems: "center", gap: 6, background: C.ink, color: C.warm, border: "none", padding: "0 16px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", opacity: shippingId === i.id ? 0.7 : 1 }}>
