@@ -292,20 +292,15 @@ function Overview({ products, orderItems, loading }) {
 }
 
 const SUBCATEGORIES_BY_CATEGORY = {
-  Men: ["Shoes", "Accessories", "Streetwear", "Shirts", "Pants", "Swimwear", "Thobes"],
-  Women: ["Shoes", "Accessories", "Abayas", "Streetwear", "Shirts", "Pants", "Swimwear", "Dresses"],
+  Men: ["Clothing", "Shoes", "Accessories", "Jewelry"],
+  Women: ["Clothing", "Shoes", "Accessories", "Jewelry"],
 };
 
 const PRODUCT_TYPES_BY_SUBCATEGORY = {
-  Shirts: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies"],
-  Pants: ["Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts"],
-  Streetwear: ["Hoodies", "Sweatshirts", "Joggers", "Bomber Jackets"],
-  Swimwear: ["Swim Trunks", "Swim Shorts", "One-Piece", "Bikini"],
-  Thobes: ["Classic Thobe", "Modern Thobe"],
-  Abayas: ["Classic Abaya", "Embroidered Abaya", "Kimono Abaya"],
-  Dresses: ["Maxi Dress", "Midi Dress", "Evening Dress"],
+  Clothing: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Bomber Jackets", "Swim Trunks", "Swim Shorts", "One-Piece", "Bikini", "Classic Thobe", "Modern Thobe", "Classic Abaya", "Embroidered Abaya", "Kimono Abaya", "Maxi Dress", "Midi Dress", "Evening Dress"],
   Shoes: ["Sneakers", "Sandals", "Boots", "Heels", "Loafers"],
-  Accessories: ["Jewelry", "Bags", "Belts", "Watches", "Sunglasses"],
+  Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
+  Jewelry: ["Necklaces", "Rings", "Bracelets", "Earrings"],
 };
 
 function Products({ products, loading, token, onCreated }) {
