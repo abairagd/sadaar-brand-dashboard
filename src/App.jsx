@@ -44,7 +44,7 @@ async function api(path, options = {}, token) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(`${data.error || `Request failed (${res.status})`}${data.detail ? " — " + (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)).slice(0, 300) : ""}`);
   return data;
 }
 
