@@ -63,11 +63,18 @@ const inputStyle = { border: `1px solid ${C.line}`, padding: "11px 13px", fontFa
 const h1 = { fontFamily: "Fraunces, serif", fontWeight: 500, fontSize: 24, color: C.ink, margin: 0 };
 const h2 = { fontFamily: "Fraunces, serif", fontWeight: 500, fontSize: 17, color: C.ink, marginTop: 32, marginBottom: 12 };
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, initialResetToken }) {
+  const [mode, setMode] = useState(initialResetToken ? "reset" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [resetDone, setResetDone] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -83,23 +90,103 @@ function LoginScreen({ onLogin }) {
     }
   };
 
+  const submitResetRequest = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await api("/brands/request-password-reset", { method: "POST", body: JSON.stringify({ email: resetEmail }) });
+      setResetSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitNewPassword = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await api("/brands/reset-password", { method: "POST", body: JSON.stringify({ token: initialResetToken, password: newPassword }) });
+      setResetDone(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: C.sand, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <style>{FONTS}</style>
       <div style={{ width: 380, background: C.warm, border: `1px solid ${C.line}`, padding: 32 }}>
         <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 24, color: C.ink, marginBottom: 4 }}>SADAAR</div>
         <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginBottom: 24 }}>Brand dashboard</p>
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Brand email" style={inputStyle} />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" style={inputStyle} />
-          {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{error}</p>}
-          <button type="submit" disabled={loading} style={{ background: C.ink, color: C.warm, border: "none", padding: "12px 0", fontFamily: "Inter, sans-serif", fontSize: 14, cursor: "pointer", marginTop: 6, opacity: loading ? 0.7 : 1 }}>
-            {loading ? "Logging in..." : "Log in"}
-          </button>
-        </form>
-        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: C.muted, marginTop: 18 }}>
-          Use the seeded demo brand credentials from your database (e.g. hello@nokhba.example) — password is whatever the account was created with. New brand applications go through "Apply to sell" on the main site and start as pending until approved.
-        </p>
+
+        {mode === "login" && (
+          <>
+            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Brand email" style={inputStyle} />
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" style={inputStyle} />
+              {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{error}</p>}
+              <button type="submit" disabled={loading} style={{ background: C.ink, color: C.warm, border: "none", padding: "12px 0", fontFamily: "Inter, sans-serif", fontSize: 14, cursor: "pointer", marginTop: 6, opacity: loading ? 0.7 : 1 }}>
+                {loading ? "Logging in..." : "Log in"}
+              </button>
+            </form>
+            <button onClick={() => { setMode("forgot"); setError(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontFamily: "Inter, sans-serif", fontSize: 12, textDecoration: "underline", marginTop: 14, padding: 0 }}>
+              Forgot password?
+            </button>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: C.muted, marginTop: 18 }}>
+              Use the seeded demo brand credentials from your database (e.g. hello@nokhba.example) — password is whatever the account was created with. New brand applications go through "Apply to sell" on the main site and start as pending until approved.
+            </p>
+          </>
+        )}
+
+        {mode === "forgot" && !resetSent && (
+          <form onSubmit={submitResetRequest} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, margin: 0 }}>Enter your account email and we'll send a link to reset your password.</p>
+            <input value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="Brand email" style={inputStyle} />
+            {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{error}</p>}
+            <button type="submit" disabled={loading} style={{ background: C.ink, color: C.warm, border: "none", padding: "12px 0", fontFamily: "Inter, sans-serif", fontSize: 14, cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+              {loading ? "Sending..." : "Send reset link"}
+            </button>
+            <button type="button" onClick={() => setMode("login")} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontFamily: "Inter, sans-serif", fontSize: 12, textDecoration: "underline", padding: 0 }}>
+              Back to log in
+            </button>
+          </form>
+        )}
+
+        {mode === "forgot" && resetSent && (
+          <div>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.char }}>If that email has a SADAAR brand account, a reset link is on its way. Check your inbox (and spam folder).</p>
+            <button onClick={() => { setMode("login"); setResetSent(false); }} style={{ background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", marginTop: 12 }}>
+              Back to log in
+            </button>
+          </div>
+        )}
+
+        {mode === "reset" && !resetDone && (
+          <form onSubmit={submitNewPassword} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, margin: 0 }}>Choose a new password for your account.</p>
+            <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="New password" style={inputStyle} />
+            {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 12, margin: 0 }}>{error}</p>}
+            <button type="submit" disabled={loading} style={{ background: C.ink, color: C.warm, border: "none", padding: "12px 0", fontFamily: "Inter, sans-serif", fontSize: 14, cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+              {loading ? "Saving..." : "Set new password"}
+            </button>
+          </form>
+        )}
+
+        {mode === "reset" && resetDone && (
+          <div>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.char }}>Password updated. You can now log in with your new password.</p>
+            <button onClick={() => setMode("login")} style={{ background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", marginTop: 12 }}>
+              Log in
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -900,7 +987,10 @@ export default function BrandDashboard() {
 
   const refresh = () => { if (token && brand) loadData(token, brand); };
 
-  if (!brand) return <LoginScreen onLogin={handleLogin} />;
+  if (!brand) {
+    const resetToken = new URLSearchParams(window.location.search).get("resetToken");
+    return <LoginScreen onLogin={handleLogin} initialResetToken={resetToken} />;
+  }
 
   if (returningSpotlight) {
     return (
