@@ -677,9 +677,9 @@ function Products({ products, loading, token, onCreated }) {
         </button>
       </div>
 
-      {showForm && (
       <BulkUpload token={token} onUploaded={onCreated} />
-        <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
+{showForm && (
+  <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
           <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); setProductType(""); }} style={inputStyle}>
             {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
