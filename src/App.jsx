@@ -336,7 +336,172 @@ const PRODUCT_TYPES_BY_CATEGORY = {
     Jewelry: ["Necklaces", "Rings", "Bracelets", "Earrings"],
   },
 };
+// New component for sadaar-dashboard. Add this function anywhere in
+// src/App.jsx (e.g. right before the Products function), then render
+// <BulkUpload token={token} onUploaded={onCreated} /> inside the Products
+// view — see the integration notes below the code.
 
+// Simple CSV parser that handles quoted fields (so descriptions containing
+// commas don't break parsing). Not a full RFC-4180 implementation, but
+// covers what a brand pasting from Excel/Sheets will produce.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (char === '"' && next === '"') { field += '"'; i++; }
+      else if (char === '"') { inQuotes = false; }
+      else { field += char; }
+    } else {
+      if (char === '"') inQuotes = true;
+      else if (char === ",") { row.push(field); field = ""; }
+      else if (char === "\n" || char === "\r") {
+        if (field !== "" || row.length > 0) { row.push(field); rows.push(row); row = []; field = ""; }
+        if (char === "\r" && next === "\n") i++;
+      } else field += char;
+    }
+  }
+  if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function BulkUpload({ token, onUploaded }) {
+  const [parsedRows, setParsedRows] = useState([]);
+  const [fileName, setFileName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState("");
+
+  const downloadTemplate = () => {
+    const template = `name,description,category,subcategory,productType,price,sizes
+Classic Thobe,Breathable linen thobe with a relaxed cut,Men,Clothing,Modern Thobe,410,"S:5, M:10, L:8"
+Silk Abaya,Fluid silk-blend abaya,Women,Clothing,Classic Abaya,620,"S:3, M:6, L:4"`;
+    const blob = new Blob([template], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sadaar-product-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    setResults(null);
+    setError("");
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const rows = parseCsv(evt.target.result);
+      if (rows.length < 2) {
+        setError("The file doesn't have any data rows below the header.");
+        setParsedRows([]);
+        return;
+      }
+      const header = rows[0].map((h) => h.trim());
+      const dataRows = rows.slice(1).filter((r) => r.some((cell) => cell.trim() !== ""));
+      const objects = dataRows.map((r) => {
+        const obj = {};
+        header.forEach((h, i) => { obj[h] = (r[i] || "").trim(); });
+        return obj;
+      });
+      setParsedRows(objects);
+    };
+    reader.readAsText(file);
+  };
+
+  const submit = async () => {
+    if (parsedRows.length === 0) return;
+    setUploading(true);
+    setError("");
+    try {
+      const result = await api("/products/bulk", { method: "POST", body: JSON.stringify({ products: parsedRows }) }, token);
+      setResults(result);
+      if (result.created > 0) onUploaded();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ border: `1px solid ${C.line}`, padding: 20, marginBottom: 24, background: C.warm }}>
+      <p style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: C.ink, marginTop: 0 }}>Bulk upload from CSV</p>
+      <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginBottom: 14 }}>
+        Upload many products at once. Columns: name, description, category, subcategory, productType, price, sizes (format: "S:5, M:10, L:8").
+      </p>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <button onClick={downloadTemplate} style={{ background: "none", border: `1px solid ${C.line}`, padding: "8px 14px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", color: C.char }}>
+          Download template
+        </button>
+        <input type="file" accept=".csv" onChange={handleFile} style={{ fontFamily: "Inter, sans-serif", fontSize: 13 }} />
+      </div>
+
+      {parsedRows.length > 0 && !results && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.char, marginBottom: 8 }}>
+            {fileName} — {parsedRows.length} product{parsedRows.length !== 1 ? "s" : ""} ready to upload
+          </p>
+          <div style={{ maxHeight: 200, overflowY: "auto", border: `1px solid ${C.line}` }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "Inter, sans-serif", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: C.sand }}>
+                  <th style={{ padding: 6, textAlign: "left" }}>Name</th>
+                  <th style={{ padding: 6, textAlign: "left" }}>Category</th>
+                  <th style={{ padding: 6, textAlign: "left" }}>Price</th>
+                  <th style={{ padding: 6, textAlign: "left" }}>Sizes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedRows.map((r, i) => (
+                  <tr key={i} style={{ borderTop: `1px solid ${C.line}` }}>
+                    <td style={{ padding: 6 }}>{r.name}</td>
+                    <td style={{ padding: 6 }}>{r.category}</td>
+                    <td style={{ padding: 6 }}>{r.price}</td>
+                    <td style={{ padding: 6 }}>{r.sizes}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button onClick={submit} disabled={uploading} style={{ marginTop: 10, background: C.ink, color: C.warm, border: "none", padding: "10px 20px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", opacity: uploading ? 0.7 : 1 }}>
+            {uploading ? "Uploading..." : `Upload ${parsedRows.length} products`}
+          </button>
+        </div>
+      )}
+
+      {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13 }}>{error}</p>}
+
+      {results && (
+        <div>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: "#2F5B3C", marginBottom: 8 }}>
+            {results.created} product{results.created !== 1 ? "s" : ""} created successfully.
+          </p>
+          {results.errors.length > 0 && (
+            <div>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.danger, marginBottom: 6 }}>{results.errors.length} row(s) had problems:</p>
+              <ul style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: C.char, paddingLeft: 18 }}>
+                {results.errors.map((e, i) => (
+                  <li key={i}>Row {e.row} ({e.name}): {e.error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button onClick={() => { setResults(null); setParsedRows([]); setFileName(""); }} style={{ marginTop: 10, background: "none", border: `1px solid ${C.line}`, padding: "8px 16px", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer", color: C.char }}>
+            Upload another file
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 function Products({ products, loading, token, onCreated }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -513,6 +678,7 @@ function Products({ products, loading, token, onCreated }) {
       </div>
 
       {showForm && (
+      <BulkUpload token={token} onUploaded={onCreated} />
         <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
           <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); setProductType(""); }} style={inputStyle}>
