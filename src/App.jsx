@@ -1209,7 +1209,7 @@ function Spotlight({ token, brandId }) {
     <div>
       <h1 style={h1}>Spotlight</h1>
       <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, maxWidth: 480 }}>
-        Get your brand featured for extra visibility. After you pay, upload an image for the campaign (919 x 1409 px, portrait, under 5MB). SADAAR reviews it before it shows. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
+        Get your brand featured for extra visibility. After you pay, upload an image for the campaign (wide, about 1920 x 1080 px, under 5MB). SADAAR reviews it before it shows. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
       </p>
       {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 16 }}>{error}</p>}
 
