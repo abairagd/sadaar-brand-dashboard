@@ -508,7 +508,7 @@ Silk Abaya,Fluid silk-blend abaya,Women,Clothing,Classic Abaya,620,"S:3, M:6, L:
 function categoriesForBrand(brandCategory) {
   if (brandCategory === "Both") return ["Men", "Women"];
   if (["Men", "Women", "Perfumes"].includes(brandCategory)) return [brandCategory];
-  return ["Men", "Women", "Perfumes"];
+  return ["Men", "Women"];
 }
 
 function Products({ products, loading, token, onCreated }) {
