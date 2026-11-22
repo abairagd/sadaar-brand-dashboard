@@ -503,12 +503,29 @@ Silk Abaya,Fluid silk-blend abaya,Women,Clothing,Classic Abaya,620,"S:3, M:6, L:
     </div>
   );
 }
+// Which product categories a brand may list in, from what it chose when it
+// applied. Only SADAAR can change it. Mirrors the backend rule.
+function categoriesForBrand(brandCategory) {
+  if (brandCategory === "Both") return ["Men", "Women"];
+  if (["Men", "Women", "Perfumes"].includes(brandCategory)) return [brandCategory];
+  return ["Men", "Women", "Perfumes"];
+}
+
 function Products({ products, loading, token, onCreated }) {
+  const [brandCategory, setBrandCategory] = useState(null);
+  useEffect(() => {
+    api("/brands/me", {}, token).then((b) => setBrandCategory(b.category)).catch(() => {});
+  }, [token]);
+  const allowedCategories = categoriesForBrand(brandCategory);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Men");
   const [subcategory, setSubcategory] = useState("");
   const [productType, setProductType] = useState("");
+  useEffect(() => {
+    if (!allowedCategories.includes(category)) { setCategory(allowedCategories[0]); setSubcategory(""); setProductType(""); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandCategory]);
   const [price, setPrice] = useState("");
   const [sizesRaw, setSizesRaw] = useState("S:5, M:5, L:5");
   const [error, setError] = useState("");
@@ -683,8 +700,11 @@ function Products({ products, loading, token, onCreated }) {
   <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
           <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); setProductType(""); }} style={inputStyle}>
-            {["Men", "Women", "Perfumes"].map((c) => <option key={c}>{c}</option>)}
+            {allowedCategories.map((c) => <option key={c}>{c}</option>)}
           </select>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: C.muted, margin: "-6px 0 0" }}>
+            Want to sell in another category? <a href="https://wa.me/966555226474" target="_blank" rel="noopener noreferrer" style={{ color: C.bronze }}>Message SADAAR</a> and we'll review it.
+          </p>
           {(SUBCATEGORIES_BY_CATEGORY[category] || []).length > 0 && (
             <select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setProductType(""); }} style={inputStyle}>
               <option value="">No subcategory</option>
@@ -718,7 +738,7 @@ function Products({ products, loading, token, onCreated }) {
                   <input value={editDraft.name} onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Product name" style={inputStyle} />
                   <textarea value={editDraft.description} onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, fontFamily: "Inter, sans-serif", resize: "vertical" }} />
                   <select value={editDraft.category} onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value, subcategory: "", productType: "" }))} style={inputStyle}>
-                    {["Men", "Women", "Perfumes"].map((c) => <option key={c}>{c}</option>)}
+                    {(allowedCategories.includes(editDraft.category) ? allowedCategories : [...allowedCategories, editDraft.category]).map((c) => <option key={c}>{c}</option>)}
                   </select>
                   {(SUBCATEGORIES_BY_CATEGORY[editDraft.category] || []).length > 0 && (
                     <select value={editDraft.subcategory} onChange={(e) => setEditDraft((d) => ({ ...d, subcategory: e.target.value, productType: "" }))} style={inputStyle}>
