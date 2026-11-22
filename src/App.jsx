@@ -320,17 +320,18 @@ function Overview({ products, orderItems, loading, setView }) {
 const SUBCATEGORIES_BY_CATEGORY = {
   Men: ["Clothing", "Shoes", "Accessories", "Jewelry"],
   Women: ["Clothing", "Shoes", "Accessories", "Jewelry"],
+  Perfumes: ["Fragrances", "Oud", "Bukhoor", "Body Mist", "Gift Sets"],
 };
 
 const PRODUCT_TYPES_BY_CATEGORY = {
   Men: {
-    Clothing: ["T-Shirts", "Button-Up Shirts", "Polo Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Bomber Jackets", "Swim Trunks", "Classic Thobe", "Modern Thobe"],
+    Clothing: ["T-Shirts", "Shirts", "Sweatshirts & Hoodies", "Jeans", "Cargo Pants", "Chinos", "Sweatpants", "Shorts", "Jackets", "Swim Trunks", "Thobe"],
     Shoes: ["Sneakers", "Sandals", "Boots", "Loafers"],
     Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
     Jewelry: ["Necklaces", "Rings", "Bracelets"],
   },
   Women: {
-    Clothing: ["T-Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Swim Shorts", "One-Piece", "Bikini", "Classic Abaya", "Embroidered Abaya", "Kimono Abaya", "Maxi Dress", "Midi Dress", "Evening Dress"],
+    Clothing: ["T-Shirts", "Sweatshirts", "Hoodies", "Jeans", "Cargo Pants", "Chinos", "Joggers", "Shorts", "Abayas", "Dresses", "Swimwear"],
     Shoes: ["Sneakers", "Sandals", "Boots", "Heels", "Loafers"],
     Accessories: ["Bags", "Belts", "Watches", "Sunglasses"],
     Jewelry: ["Necklaces", "Rings", "Bracelets", "Earrings"],
@@ -682,7 +683,7 @@ function Products({ products, loading, token, onCreated }) {
   <form onSubmit={addProduct} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, marginTop: 16, display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" style={inputStyle} />
           <select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); setProductType(""); }} style={inputStyle}>
-            {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
+            {["Men", "Women", "Perfumes"].map((c) => <option key={c}>{c}</option>)}
           </select>
           {(SUBCATEGORIES_BY_CATEGORY[category] || []).length > 0 && (
             <select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setProductType(""); }} style={inputStyle}>
@@ -717,7 +718,7 @@ function Products({ products, loading, token, onCreated }) {
                   <input value={editDraft.name} onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Product name" style={inputStyle} />
                   <textarea value={editDraft.description} onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, fontFamily: "Inter, sans-serif", resize: "vertical" }} />
                   <select value={editDraft.category} onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value, subcategory: "", productType: "" }))} style={inputStyle}>
-                    {["Men", "Women"].map((c) => <option key={c}>{c}</option>)}
+                    {["Men", "Women", "Perfumes"].map((c) => <option key={c}>{c}</option>)}
                   </select>
                   {(SUBCATEGORIES_BY_CATEGORY[editDraft.category] || []).length > 0 && (
                     <select value={editDraft.subcategory} onChange={(e) => setEditDraft((d) => ({ ...d, subcategory: e.target.value, productType: "" }))} style={inputStyle}>
