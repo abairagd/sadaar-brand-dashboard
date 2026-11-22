@@ -1049,7 +1049,11 @@ function Payouts({ orderItems, loading }) {
   );
 }
 
+const PLACEMENT_LABELS = { Home: "Homepage", Men: "Men page", Women: "Women page", Perfumes: "Perfumes page" };
+
 function Spotlight({ token, brandId }) {
+  const [brandCategory, setBrandCategory] = useState(null);
+  const [selectedPlacement, setSelectedPlacement] = useState("Home");
   const [pricing, setPricing] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1064,11 +1068,13 @@ function Spotlight({ token, brandId }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pricingRes, historyRes, configRes] = await Promise.all([
+      const [pricingRes, historyRes, configRes, meRes] = await Promise.all([
         api("/spotlight/pricing"),
         api("/spotlight/mine", {}, token),
         api("/config/moyasar"),
+        api("/brands/me", {}, token),
       ]);
+      setBrandCategory(meRes.category);
       setPricing(pricingRes);
       setHistory(historyRes);
       setPublishableKey(configRes.publishableKey);
@@ -1081,14 +1087,15 @@ function Spotlight({ token, brandId }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const startPurchase = async (durationDays) => {
+  const startPurchase = async (placement, durationDays) => {
     setStarting(true);
     setError("");
     try {
-      const result = await api("/spotlight", { method: "POST", body: JSON.stringify({ durationDays }) }, token);
+      const result = await api("/spotlight", { method: "POST", body: JSON.stringify({ placement, durationDays }) }, token);
       setPurchase(result);
       setSelectedDuration(durationDays);
-      localStorage.setItem("sadaar_pending_spotlight", JSON.stringify({ id: result.id, price: result.price, durationDays }));
+      setSelectedPlacement(placement);
+      localStorage.setItem("sadaar_pending_spotlight", JSON.stringify({ id: result.id, price: result.price, durationDays, placement }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1112,7 +1119,7 @@ function Spotlight({ token, brandId }) {
           element: ".mysr-spotlight-form",
           amount: Math.round(purchase.price * 100),
           currency: "SAR",
-          description: `SADAAR spotlight — ${selectedDuration} days`,
+          description: `SADAAR spotlight — ${PLACEMENT_LABELS[selectedPlacement] || selectedPlacement} — ${selectedDuration} days`,
           publishable_api_key: publishableKey,
           callback_url: window.location.origin + window.location.pathname,
           methods: ["creditcard"],
@@ -1144,7 +1151,7 @@ function Spotlight({ token, brandId }) {
     script.src = "https://cdn.moyasar.com/mpf/1.7.3/moyasar.js";
     script.onload = mount;
     document.body.appendChild(script);
-  }, [purchase, publishableKey, paid, selectedDuration, token, load]);
+  }, [purchase, publishableKey, paid, selectedDuration, selectedPlacement, token, load]);
 
   if (loading) return <div><h1 style={h1}>Spotlight</h1><div style={{ marginTop: 20 }}><Loading /></div></div>;
 
@@ -1163,7 +1170,7 @@ function Spotlight({ token, brandId }) {
     return (
       <div style={{ maxWidth: 420 }}>
         <h1 style={h1}>Payment</h1>
-        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, margin: "8px 0 20px" }}>{selectedDuration}-day spotlight — {money(purchase.price)}</p>
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, margin: "8px 0 20px" }}>{PLACEMENT_LABELS[selectedPlacement] || selectedPlacement} — {selectedDuration}-day spotlight — {money(purchase.price)}</p>
         {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 12 }}>{error}</p>}
         {debugMsg && <p style={{ color: C.muted, fontFamily: "monospace", fontSize: 11, marginBottom: 12 }}>{debugMsg}</p>}
         <div className="mysr-spotlight-form" />
@@ -1171,35 +1178,40 @@ function Spotlight({ token, brandId }) {
     );
   }
 
-  const activeSpotlight = history.find((h) => h.payment_status === "paid" && new Date(h.ends_at) > new Date());
+  const activeSpotlights = history.filter((h) => h.payment_status === "paid" && new Date(h.ends_at) > new Date());
+  // The homepage, plus the page of any category this brand is approved to sell in.
+  const placements = ["Home", ...categoriesForBrand(brandCategory)];
 
   return (
     <div>
       <h1 style={h1}>Spotlight</h1>
       <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, maxWidth: 480 }}>
-        Get your brand featured on the SADAAR homepage for extra visibility. Pick a duration below.
+        Get your brand featured for extra visibility. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
       </p>
       {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 16 }}>{error}</p>}
 
-      {activeSpotlight && (
-        <div style={{ background: "#DDE7DB", border: "1px solid #2F5B3C", padding: 14, marginBottom: 20, fontFamily: "Inter, sans-serif", fontSize: 13, color: "#2F5B3C" }}>
-          You're currently spotlighted until {new Date(activeSpotlight.ends_at).toLocaleDateString()}.
+      {activeSpotlights.map((a) => (
+        <div key={a.id} style={{ background: "#DDE7DB", border: "1px solid #2F5B3C", padding: 14, marginBottom: 12, fontFamily: "Inter, sans-serif", fontSize: 13, color: "#2F5B3C" }}>
+          You're spotlighted on the {PLACEMENT_LABELS[a.placement] || a.placement} until {new Date(a.ends_at).toLocaleDateString()}.
         </div>
-      )}
+      ))}
 
-      {pricing && (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 32 }}>
-          {Object.entries(pricing).map(([days, price]) => (
-            <div key={days} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, minWidth: 160 }}>
-              <p style={{ fontFamily: "Fraunces, serif", fontSize: 22, color: C.ink, margin: 0 }}>{days} days</p>
-              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.muted, margin: "6px 0 14px" }}>{money(price)}</p>
-              <button onClick={() => startPurchase(Number(days))} disabled={starting} style={{ width: "100%", background: C.ink, color: C.warm, border: "none", padding: "9px 0", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
-                {starting ? "..." : "Select"}
-              </button>
-            </div>
-          ))}
+      {pricing && placements.map((pl) => (
+        <div key={pl} style={{ marginBottom: 12 }}>
+          <h2 style={h2}>{PLACEMENT_LABELS[pl] || pl}</h2>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+            {Object.entries(pricing[pl] || {}).map(([days, price]) => (
+              <div key={days} style={{ background: C.warm, border: `1px solid ${C.line}`, padding: 20, minWidth: 160 }}>
+                <p style={{ fontFamily: "Fraunces, serif", fontSize: 22, color: C.ink, margin: 0 }}>{days} days</p>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: C.muted, margin: "6px 0 14px" }}>{money(price)}</p>
+                <button onClick={() => startPurchase(pl, Number(days))} disabled={starting} style={{ width: "100%", background: C.ink, color: C.warm, border: "none", padding: "9px 0", fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer" }}>
+                  {starting ? "..." : "Select"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      ))}
 
       <h2 style={h2}>History</h2>
       {history.length === 0 ? (
@@ -1208,7 +1220,7 @@ function Spotlight({ token, brandId }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {history.map((h) => (
             <div key={h.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13 }}>
-              <span>{h.duration_days} days — {money(h.price)}</span>
+              <span>{PLACEMENT_LABELS[h.placement] || "Homepage"} — {h.duration_days} days — {money(h.price)}</span>
               <span style={{ color: C.muted }}>
                 {h.payment_status === "paid" ? `Active until ${new Date(h.ends_at).toLocaleDateString()}` : "Unpaid"}
               </span>
