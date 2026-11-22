@@ -1064,6 +1064,29 @@ function Spotlight({ token, brandId }) {
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const [debugMsg, setDebugMsg] = useState("");
+  const [bannerBusy, setBannerBusy] = useState(null);
+  const [bannerError, setBannerError] = useState({});
+
+  const uploadBanner = async (slotId, file) => {
+    setBannerBusy(slotId);
+    setBannerError((prev) => ({ ...prev, [slotId]: "" }));
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${API_BASE}/spotlight/${slotId}/banner`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      load();
+    } catch (err) {
+      setBannerError((prev) => ({ ...prev, [slotId]: err.message }));
+    } finally {
+      setBannerBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1186,7 +1209,7 @@ function Spotlight({ token, brandId }) {
     <div>
       <h1 style={h1}>Spotlight</h1>
       <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, maxWidth: 480 }}>
-        Get your brand featured for extra visibility. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
+        Get your brand featured for extra visibility. After you pay, upload a banner picture for the campaign (wide, about 1200 x 600 px, under 5MB). SADAAR reviews it before it shows. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
       </p>
       {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 16 }}>{error}</p>}
 
@@ -1219,11 +1242,30 @@ function Spotlight({ token, brandId }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {history.map((h) => (
-            <div key={h.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13 }}>
-              <span>{PLACEMENT_LABELS[h.placement] || "Homepage"} — {h.duration_days} days — {money(h.price)}</span>
-              <span style={{ color: C.muted }}>
-                {h.payment_status === "paid" ? `Active until ${new Date(h.ends_at).toLocaleDateString()}` : "Unpaid"}
-              </span>
+            <div key={h.id} style={{ padding: "10px 14px", background: C.warm, border: `1px solid ${C.line}`, fontFamily: "Inter, sans-serif", fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{PLACEMENT_LABELS[h.placement] || "Homepage"} — {h.duration_days} days — {money(h.price)}</span>
+                <span style={{ color: C.muted }}>
+                  {h.payment_status === "paid" ? `Active until ${new Date(h.ends_at).toLocaleDateString()}` : "Unpaid"}
+                </span>
+              </div>
+              {h.payment_status === "paid" && (
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {h.image_url && <img src={h.image_url} alt="" style={{ width: 120, height: 60, objectFit: "cover", border: `1px solid ${C.line}` }} />}
+                  <span style={{ color: h.image_status === "rejected" ? C.danger : C.muted, fontSize: 12 }}>
+                    {h.image_status === "approved" && "Banner approved and showing"}
+                    {h.image_status === "pending" && "Banner waiting for SADAAR approval"}
+                    {h.image_status === "rejected" && "Banner not approved. Please upload a different image."}
+                    {(!h.image_status || h.image_status === "none") && "No banner yet. Without one, your spotlight shows your name and description only."}
+                  </span>
+                  <label style={{ background: C.ink, color: C.warm, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+                    {bannerBusy === h.id ? "Uploading..." : h.image_url ? "Replace banner" : "Upload banner"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} disabled={bannerBusy === h.id}
+                      onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadBanner(h.id, f); e.target.value = ""; }} />
+                  </label>
+                  {bannerError[h.id] && <span style={{ color: C.danger, fontSize: 12 }}>{bannerError[h.id]}</span>}
+                </div>
+              )}
             </div>
           ))}
         </div>
