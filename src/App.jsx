@@ -1209,7 +1209,7 @@ function Spotlight({ token, brandId }) {
     <div>
       <h1 style={h1}>Spotlight</h1>
       <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, maxWidth: 480 }}>
-        Get your brand featured for extra visibility. After you pay, upload an image for the campaign (portrait, about 1080 x 1350 px, under 5MB). SADAAR reviews it before it shows. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
+        Get your brand featured for extra visibility. After you pay, upload an image for the campaign (750 x 430 px, under 5MB). SADAAR reviews it before it shows. Each space is booked separately: the homepage reaches everyone, and a category page reaches shoppers browsing that category. Pick a space and a duration below.
       </p>
       {error && <p style={{ color: C.danger, fontFamily: "Inter, sans-serif", fontSize: 13, marginBottom: 16 }}>{error}</p>}
 
@@ -1251,7 +1251,7 @@ function Spotlight({ token, brandId }) {
               </div>
               {h.payment_status === "paid" && (
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  {h.image_url && <img src={h.image_url} alt="" style={{ width: 96, height: 120, objectFit: "cover", border: `1px solid ${C.line}` }} />}
+                  {h.image_url && <img src={h.image_url} alt="" style={{ width: 150, height: 86, objectFit: "cover", border: `1px solid ${C.line}` }} />}
                   <span style={{ color: h.image_status === "rejected" ? C.danger : C.muted, fontSize: 12 }}>
                     {h.image_status === "approved" && "Banner approved and showing"}
                     {h.image_status === "pending" && "Banner waiting for SADAAR approval"}
